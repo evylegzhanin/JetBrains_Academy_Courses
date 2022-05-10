@@ -1,115 +1,146 @@
 import re
-import argparse
+import sys
 import os
-
-check_funcs = ['length_check(line, index, path)',
-               'indentation_check(line, index, path)',
-               'semicolon_check(line, index, path)',
-               'two_spaces_before_inline_comment_check(line, index, path)',
-               'todo_check(line, index, path)',
-               'two_blank_lines_before_line_check(line, index, lines, path)',
-               'spaces_after_construction_name_check(line, index, path)',
-               'camel_case_in_class_name_check(line, index, path)',
-               'snake_case_in_function_name_check(line, index, path)']
-
-issues_dict = {'S001': 'Too long',
-               'S002': 'Indentation is not a multiple of four',
-               'S003': 'Unnecessary semicolon',
-               'S004': 'At least two spaces required before inline comments',
-               'S005': 'TODO found',
-               'S006': 'More than two blank lines used before this line',
-               'S007': "Too many spaces after '$construction'",
-               'S008': "'Class name '$name' should be written in CamelCase'",
-               'S009': "Function name '$name' should be written in snake_case"}
+import ast
+from collections import defaultdict
 
 
-def length_check(line, index, path):
-    if len(line) > 79:
-        return f'{path}: Line {index}: S001 {issues_dict["S001"]}'
+class CodeAnalyser:
 
+    errors = {
+        'S001': 'Too long',
+        'S002': 'Indentation is not a multiple of four',
+        'S003': 'Unnecessary semicolon after a statement',
+        'S004': 'Less than two spaces before inline comments',
+        'S005': 'TODO found',
+        'S006': 'More than two blank lines preceding a code line',
+        'S007': 'Too many spaces after construction_name',
+        'S008': 'Class name class_name should be written in CamelCase',
+        'S009': 'Function name function_name should be written in snake_case',
+        'S010': 'Argument name arg_name should be written in snake_case',
+        'S011': 'Variable var_name should be written in snake_case',
+        'S012': 'The default argument value is mutable'
+    }
 
-def indentation_check(line, index, path):
-    if line.strip() != '':
-        spaces = re.search(r'^\s+', line)
-        if spaces is not None and len(spaces[0]) % 4 != 0:
-            return f'{path}: Line {index}: S002 {issues_dict["S002"]}'
+    def check_code(self, path_to_file):
+        self.path_to_file = path_to_file
+        self.desc_line_type = []
+        self.n_blank_line = 0
+        self.report = defaultdict(list)
 
+        CodeAnalyser.new_check_code(self, self.path_to_file)
 
-def semicolon_check(line, index, path):
-    if (';' in line) and (re.search(r'#.*;|[\'\"].*;.*[\'\"]', line) is None):
-        return f'{path}: Line {index}: S003 {issues_dict["S003"]}'
+        with open(self.path_to_file, 'r') as f:
+            for n_line, line in enumerate(f.readlines(), start=1):
+                line_type = CodeAnalyser.get_type_of_line(self, line)
+                self.desc_line_type.append(line_type)
+                CodeAnalyser.check_len_line(self, n_line, line, 'S001')
+                CodeAnalyser.check_indent(self, n_line, line, 'S002')
+                CodeAnalyser.check_semi_colon(self, n_line, line, 'S003')
+                if line_type == 'inline_comment':
+                    CodeAnalyser.check_space_before_inline_comment(self, n_line, line, 'S004')
+                CodeAnalyser.check_todo(self, n_line, line, 'S005')
+                CodeAnalyser.check_blanks_lines(self, n_line, line, 'S006')
+                CodeAnalyser.check_blanks_after_func_class(self, n_line, line, 'S007')
+                CodeAnalyser.check_camel_case(self, n_line, line, 'S008')
+                CodeAnalyser.check_snake_case(self, n_line, line, 'S009')
 
+        CodeAnalyser.print_report(self)
 
-def two_spaces_before_inline_comment_check(line, index, path):
-    if ('#' in line) and (re.search(r'\s{2,}#\s|^\s*#', line) is None):
-        return f'{path}: Line {index}: S004 {issues_dict["S004"]}'
+    def new_check_code(self, path_to_file):
+        with open(path_to_file, 'r') as f:
+            script = f.read()
+        tree = ast.parse(script)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef):
+                for arg in node.args.args:
+                    CodeAnalyser.new_check_snake_case(self, arg.arg, "S010", node.lineno)
+                for arg in node.args.defaults:
+                    if isinstance(arg, ast.List):
+                        CodeAnalyser.set_report(self, node.lineno, "S012")
+            if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
+                CodeAnalyser.new_check_snake_case(self, node.id, "S011", node.lineno)
 
+    def new_check_snake_case(self, name, error_code, n_line):
+        if re.search(r'^[a-z_]{1,2}[a-z0-9_]*[_]{0,2}$', name) is None:
+            CodeAnalyser.set_report(self, n_line, error_code)
 
-def todo_check(line, index, path):
-    if re.search(r'#\s[tT][oO][dD][oO]', line) is not None:
-        return f'{path}: Line {index}: S005 {issues_dict["S005"]}'
+    def get_type_of_line(self, line):
+        if re.match(r'^$', line):
+            self.n_blank_line += 1
+            return 'blank_line'
 
+        if re.match(r'^ *#', line):
+            return 'comment'
 
-def two_blank_lines_before_line_check(line, index, lines, path):
-    index_ = index - 1
-    if index_ >= 3 and line.strip() != '':
-        if ''.join(lines[index_ - 3:index_]).strip() == '':
-            return f'{path}: Line {index}: S006 {issues_dict["S006"]}'
+        if re.match(r'.*#.*', line):
+            return 'inline_comment'
 
+        return 'code'
 
-def spaces_after_construction_name_check(line, index, path):
-    pattern = r'^\s*(def|class)\s{2,}([a-zA-Z0-9_-]+)'
-    if re.search(pattern, line) is not None:
-        construction = re.search(pattern, line).group(1)
-        return f'{path}: Line {index}: S007 {issues_dict["S007"].replace("$construction", construction)}'
+    def check_indent(self, n_line, line, error_code):
+        if len(re.search(r'^ *', line).group(0)) % 4 != 0:
+            CodeAnalyser.set_report(self, n_line, error_code)
 
+    def check_len_line(self, n_line, line, error_code):
+        if len(line) > 79:
+            CodeAnalyser.set_report(self, n_line, error_code)
 
-def camel_case_in_class_name_check(line, index, path):
-    if line.startswith('class ') and (re.search(r'^\s*class\s+([A-Z][a-zA-Z0-9]*)', line) is None):
-        name = re.search(r'^\s*class\s+([a-zA-Z0-9_-]*)', line).group(1)
-        return f'{path}: Line {index}: S008 {issues_dict["S008"].replace("$name", name)}'
+    def check_semi_colon(self, n_line, line, error_code):
+        if self.desc_line_type[n_line - 1] == 'code':
+            if re.search(r';$', line):
+                CodeAnalyser.set_report(self, n_line, error_code)
+        if self.desc_line_type[n_line - 1] == 'inline_comment':
+            if re.search(r'.*;.*#', line):
+                CodeAnalyser.set_report(self, n_line, error_code)
 
+    def check_space_before_inline_comment(self, n_line, line, error_code):
+        if self.desc_line_type[n_line - 1] == 'inline_comment':
+            if re.search(r' {2}#', line) is None:
+                CodeAnalyser.set_report(self, n_line, error_code)
 
-def snake_case_in_function_name_check(line, index, path):
-    if line.startswith('def ') and (re.search(r'^\s*def\s+[a-z_][a-z0-9_]*', line) is None):
-        name = re.search(r'^\s*def\s+([a-zA-Z0-9_-]+)', line).group(1)
-        return f'{path}: Line {index}: S009 {issues_dict["S009"].replace("$name", name)}'
+    def check_todo(self, n_line, line, error_code):
+        if re.search(r'#.*todo', line, re.IGNORECASE):
+            CodeAnalyser.set_report(self, n_line, error_code)
 
+    def check_blanks_lines(self, n_line, line, error_code):
+        if self.desc_line_type[n_line - 1] != 'blank_line':
+            if self.n_blank_line > 2:
+                CodeAnalyser.set_report(self, n_line, error_code)
+            self.n_blank_line = 0
 
-def print_issues_from_file(path):
-    with open(path, 'r') as file:
-        lines = file.readlines()
-        for index, line in enumerate(lines, start=1):
-            for func in check_funcs:
-                issue = eval(func)
-                if issue is not None:
-                    print(issue)
+    def check_blanks_after_func_class(self, n_line, line, error_code):
+        result = re.search(r'^ *(?P<constructor>def|class)(?P<space> *)', line)
+        if result is not None and len(result.group('space')) > 1:
+            CodeAnalyser.set_report(self, n_line, error_code)
 
+    def check_camel_case(self, n_line, line, error_code):
+        if re.search(r'^class *', line):
+            if re.search(r'(?P<constructor>class) *[A-Z]([a-zA-Z0-9])*', line) is None:
+                CodeAnalyser.set_report(self, n_line, error_code)
 
-def parse_dir(path):
-    entries = sorted(os.listdir(path))
-    paths = []
-    for entry in entries:
-        path_to_file = os.path.join(path, entry)
-        if os.path.isdir(path_to_file):
-            parse_dir(path_to_file)
-        if os.path.isfile(path_to_file):
-            paths.append(path_to_file)
-    return paths
+    def check_snake_case(self, n_line, line, error_code):
+        if re.search(r'(^| *)def *', line):
+            if re.search(r'def *[a-z_]{1,2}([a-z0-9_]*[_]{0,2})', line) is None:
+                CodeAnalyser.set_report(self, n_line, error_code)
 
+    def set_report(self, n_line, error_code):
+        self.report[n_line].append(error_code)
+       
+    def print_report(self):
+        for k, v in self.report.items():
+            for elt in v:
+                print(f'{self.path_to_file}: Line {k}: {elt} {CodeAnalyser.errors[elt]}')
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('path')
-    args = parser.parse_args()
-    path = args.path
+path_to_file = sys.argv[1]
+analyzer = CodeAnalyser()
+list_files = []
+if os.path.isfile(path_to_file):
+    analyzer.check_code(path_to_file)
+else:
+    for dirpath, dirnames, files in os.walk(path_to_file, topdown=True):
+        for file in files:
+            list_files.append(os.path.join(dirpath, file))
 
-    if os.path.isfile(path):
-        print_issues_from_file(path)
-    elif os.path.isdir(path):
-        paths = parse_dir(path)
-        [print_issues_from_file(path) for path in paths]
-
-
-if __name__ == '__main__':
-    main()
+    for file in sorted(list_files):
+        analyzer.check_code(file)
