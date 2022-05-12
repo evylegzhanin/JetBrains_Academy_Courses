@@ -126,7 +126,7 @@ class CodeAnalyser:
 
     def set_report(self, n_line, error_code):
         self.report[n_line].append(error_code)
-       
+
     def print_report(self):
         for k, v in self.report.items():
             for elt in v:
