@@ -12,9 +12,9 @@ else:
     port = int(args[2])
 
 
-def find_password(socket_cl, mode='bruteforce'):
+def find_password(socket_cl, mode='dictionary'):
     if mode == 'bruteforce':
-        alpha_num_list =  list(string.ascii_lowercase + string.digits)
+        alpha_num_list = list(string.ascii_lowercase + string.digits)
         i = 1
         counter = 1
         while counter <= 1e6:
@@ -23,12 +23,26 @@ def find_password(socket_cl, mode='bruteforce'):
                 data_to_send = joined_iter.encode()
                 socket_cl.send(data_to_send)
                 response_form_ser = socket_cl.recv(1024)
-                # decoding from bytes to string
                 response_form_ser = response_form_ser.decode()
                 if response_form_ser == 'Connection success!':
                     return joined_iter
                 counter += 1
             i += 1
+
+    if mode == 'dictionary':
+        with open('passwords.txt') as file:
+            lst_pass = file.readlines()
+            lst_pass = [password.rstrip() for password in lst_pass]
+            for password_non_case in lst_pass:
+                for password in map(lambda x: ''.join(x),
+                                    itertools.product(*([letter.lower(), letter.upper()]
+                                                        for letter in password_non_case))):
+                    data_to_send = password.encode()
+                    socket_cl.send(data_to_send)
+                    response_form_ser = socket_cl.recv(1024)
+                    response_form_ser = response_form_ser.decode()
+                    if response_form_ser == 'Connection success!':
+                        return password
 
 
 # creating a client socket
