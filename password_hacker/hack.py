@@ -74,7 +74,7 @@ def find_password(socket_cl, mode='log_pass'):
                     start = time.time()
                     message_received = send_request(correct_login, pass_str)
                     end = time.time()
-                    if (end - start) >= 0.090:
+                    if (end - start) >= 0.09:
                         password = pass_str
                         break
                     elif message_received == "Connection success!":
