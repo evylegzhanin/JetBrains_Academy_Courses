@@ -9,6 +9,6 @@ List of projects:
   5. [Tic-Tac-Toe with AI (Hard)](https://github.com/evylegzhanin/JetBrains_Python_Core/tree/main/tic_tac_toe_with_AI)
   6. [Static Code Analyzer (Challenging)](https://github.com/evylegzhanin/JetBrains_Python_Core/tree/main/static_code_analyzer)
   7. [Password Hacker (Challenging/Graduate Project)](https://github.com/evylegzhanin/JetBrains_Python_Core/tree/main/password_hacker)
-  8. Easy Rider Bud Company (Challenging)
+  8. Easy Rider Bus Company (Challenging)
 
 Projects are available: [JetBrains Academy](https://hyperskill.org/tracks/2)
