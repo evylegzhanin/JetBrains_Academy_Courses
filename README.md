@@ -1,5 +1,5 @@
 # JetBrains_Academy_Courses
-Here, some projects from the courses by JetBrains Academy will are stored. There are four levels: easy, medium, hard and challenging.
+Here, some projects from the courses by JetBrains Academy will be stored. There are four levels: easy, medium, hard and challenging.
 
 List of projects:
   1. [Bill splitter (Medium)](https://github.com/evylegzhanin/JetBrains_Python_Core/tree/main/bill_splitter)  
