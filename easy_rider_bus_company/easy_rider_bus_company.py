@@ -51,14 +51,26 @@ def format_val(json_str):
     return dct, keys
 
 
+def stops_number(json_str):
+    dct = defaultdict(int)
+    for pack in json_str:
+        dct[pack['bus_id']] += 1
+    return dct
+
+
 json_inp = json.loads(input())
 dct_fields, keys = field_val(json_inp)
 dct_format, keys_form = format_val(json_inp)
-print(f'Type and required field validation: {sum(dct_fields.values())} errors')
-for key in keys.keys():
-    print(f'{key}: {dct_fields[key]}')
-print(f'Format validation: {sum(dct_format.values())} errors')
-for key in keys_form:
-    print(f'{key}: {dct_format[key]}')
+# print(f'Type and required field validation: {sum(dct_fields.values())} errors')
+# for key in keys.keys():
+#     print(f'{key}: {dct_fields[key]}')
+# print(f'Format validation: {sum(dct_format.values())} errors')
+# for key in keys_form:
+#     print(f'{key}: {dct_format[key]}')
+print(f'Line names and number of stops:')
+dct_stops = stops_number(json_inp)
+print(dct_stops)
+# for key, value in sorted(dct_stops.items()):
+#     print(f'bus_id: {key}, stops: {dct_format[key]}')
 
 
