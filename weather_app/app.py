@@ -1,12 +1,13 @@
 from flask import Flask
+from flask import render_template
 import sys
 
-app = Flask('weather_app')
+app = Flask(__name__)
 
 
 @app.route('/')
-def hello_world():
-    return 'Hello, world!'
+def html_template():
+    return render_template(r"index.html")
 
 
 # don't change the following way to run flask:
